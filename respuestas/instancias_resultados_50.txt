@@ -1,0 +1,12 @@
+Nombre de la instancia | Número de clientes | Capacidad del vehículo | Valor de la Función Objetivo | Tiempo máximo de jornada |
+MT-DMP10s0-01.txt | 10 | 120 | 1401.00 | 0.0253
+MT-DMP10s0-05.txt | 10 | 120 | 1729.00 | 0.0274
+MT-DMP15s0-03.txt | 15 | 120 | 3654.00 | 0.0680
+MT-DMP15s0-04.txt | 15 | 120 | 3155.00 | 0.0675
+VRPNC11m.TXT | 120 | 160 | 60570.79 | 177.0533
+VRPNC12m.TXT | 100 | 140 | 41890.23 | 66.5567
+VRPNC1m.TXT | 50 | 200 | 13623.09 | 6.3194
+VRPNC2m.TXT | 75 | 200 | 33069.49 | 12.6527
+VRPNC3m.TXT | 100 | 200 | 45061.83 | 58.6909
+VRPNC4m.TXT | 150 | 200 | 91192.79 | 105.2398
+VRPNC5m.TXT | 199 | 200 | 149315.88 | 289.6177
