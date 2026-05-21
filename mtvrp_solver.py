@@ -62,6 +62,24 @@ def calculate_latency(routes, dist_matrix):
                 total_latency += global_time
     return total_latency
 
+def route_duration(route, dist_matrix):
+    d = 0
+    for i in range(len(route) - 1):
+        d += dist_matrix[route[i]][route[i+1]]
+    return d
+
+def reorder_routes(routes, dist_matrix):
+    route_info = []
+    for r in routes:
+        clients_count = len(r) - 2
+        if clients_count <= 0:
+            continue
+        dur = route_duration(r, dist_matrix)
+        ratio = dur / clients_count
+        route_info.append((ratio, r))
+    route_info.sort(key=lambda x: x[0])
+    return [r for _, r in route_info]
+
 def grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=3):
     """Fase 1: Construcción Aleatorizada Golosa"""
     unvisited = set(nodes.keys())
@@ -82,15 +100,19 @@ def grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=3)
             time_fits = (current_route_time + dist + time_to_return) <= max_time
             
             if demand_fits and time_fits:
-                candidates.append((dist, candidate))
+                # Dynamic beta parameter based on load fullness
+                beta = (current_load + demands[candidate]) / capacity
+                score = dist + beta * time_to_return
+                candidates.append((score, candidate))
         
         if candidates:
             # RCL: Tomamos los 'alpha' mejores candidatos y elegimos uno al azar
             candidates.sort(key=lambda x: x[0])
             rcl = candidates[:alpha]
             chosen = random.choice(rcl)
-            best_dist, best_next_node = chosen
+            best_score, best_next_node = chosen
             
+            best_dist = dist_matrix[current_node][best_next_node]
             current_route.append(best_next_node)
             unvisited.remove(best_next_node)
             current_load += demands[best_next_node]
@@ -111,7 +133,7 @@ def grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=3)
     return routes
 
 def local_search(routes, dist_matrix):
-    """Fase 2: Búsqueda Local (Mejora intercambiando clientes en la misma ruta)"""
+    """Fase 2: Búsqueda Local (Mejora intercambiando clientes en la misma ruta en el lugar)"""
     improved = True
     best_routes = [r[:] for r in routes]
     best_latency = calculate_latency(best_routes, dist_matrix)
@@ -123,16 +145,17 @@ def local_search(routes, dist_matrix):
             # Intentar intercambiar posiciones de dos clientes (i, j) en el viaje
             for i in range(1, len(route) - 2):
                 for j in range(i + 1, len(route) - 1):
-                    new_routes = [r[:] for r in best_routes]
-                    # Swap
-                    new_routes[r_idx][i], new_routes[r_idx][j] = new_routes[r_idx][j], new_routes[r_idx][i]
+                    # Swap in-place
+                    route[i], route[j] = route[j], route[i]
                     
-                    new_latency = calculate_latency(new_routes, dist_matrix)
+                    new_latency = calculate_latency(best_routes, dist_matrix)
                     if new_latency < best_latency:
                         best_latency = new_latency
-                        best_routes = new_routes
                         improved = True
                         break
+                    else:
+                        # Revert swap in-place
+                        route[i], route[j] = route[j], route[i]
                 if improved:
                     break
             if improved:
@@ -148,12 +171,15 @@ def solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iteration
         # 1. Construir
         routes = grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=3)
         # 2. Mejorar
-        improved_routes, improved_latency = local_search(routes, dist_matrix)
+        improved_routes, _ = local_search(routes, dist_matrix)
+        # 3. Reordenar rutas para minimizar latencia secuencial
+        sorted_routes = reorder_routes(improved_routes, dist_matrix)
+        sorted_latency = calculate_latency(sorted_routes, dist_matrix)
         
-        # 3. Guardar la mejor
-        if improved_latency < best_overall_latency:
-            best_overall_latency = improved_latency
-            best_overall_routes = improved_routes
+        # 4. Guardar la mejor
+        if sorted_latency < best_overall_latency:
+            best_overall_latency = sorted_latency
+            best_overall_routes = sorted_routes
             
     return best_overall_routes, best_overall_latency
 
