@@ -197,7 +197,7 @@ El propósito de las réplicas es poder reportar **variabilidad estadística**: 
 
 ---
 
-## 11. Datos importantes que un maestro universitario podría preguntar
+## 11. Datos importantes
 
 **Sobre la función objetivo:**
 - La función objetivo no es la *distancia total recorrida* sino la **latencia total** (suma de tiempos de llegada a cada cliente). La diferencia conceptual es importante: puedes recorrer más distancia pero atender antes a más clientes, obteniendo menor latencia.
