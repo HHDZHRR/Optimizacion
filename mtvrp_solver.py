@@ -194,6 +194,8 @@ def main():
     print(f"{'Instancia':<20} | {'Clientes':<10} | {'Mejor Latencia':<15} | {'Tiempo Ejec. (s)':<15}")
     print("-" * 65)
 
+    all_routes = {}
+
     for filename in os.listdir(folder_path):
         if filename.endswith(".txt") or filename.endswith(".TXT"):
             filepath = os.path.join(folder_path, filename)
@@ -202,18 +204,28 @@ def main():
                 nodes, demands, capacity, max_time, dist_matrix = parse_instance(filepath)
                 num_clients = len(nodes) - 1
                 
-                # Ejecutar GRASP con 50 iteraciones
-                #routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=50)
-                
                 # Ejecutar GRASP con 100 iteraciones
-                routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=100)
+                #routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=100)
+                
+                # Ejecutar GRASP con 50 iteraciones
+                routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=50)
                 exec_time = time.time() - start_time
                 
                 print(f"{filename:<20} | {num_clients:<10} | {latency:<15.2f} | {exec_time:<15.4f}")
-                # print(f"Rutas: {routes}\n")
+                all_routes[filename] = routes
                 
             except Exception as e:
                 print(f"{filename:<20} | ERROR AL LEER: {e}")
+    
+    print("\n")
+    print("=" * 65)
+    print("DETALLE DE RUTAS POR INSTANCIA")
+    print("=" * 65)
+    for filename, routes in all_routes.items():
+        print(f"\nInstancia: {filename}")
+        for idx, route in enumerate(routes):
+            route_str = " -> ".join(str(n) for n in route)
+            print(f"  Viaje {idx + 1}: {route_str}")
     
     print("\n")
 
