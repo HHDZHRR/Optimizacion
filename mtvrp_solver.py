@@ -185,8 +185,11 @@ def solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iteration
 
 def main():
     folder_path = "./instancias"
+
     ALPHA_VALUES    = [1, 2, 3, 5, 7]
     NUM_REPLICATIONS = len(ALPHA_VALUES)   # una réplica por cada valor de alpha
+
+    ITERATIONS = 50
 
     if not os.path.exists(folder_path):
         print(f"Crea la carpeta '{folder_path}' y coloca las instancias ahí.")
@@ -230,8 +233,12 @@ def main():
                 for alpha in ALPHA_VALUES:
                     t0 = time.time()
                     routes, latency = solve_mtvrp_grasp(
-                        nodes, demands, capacity, max_time, dist_matrix,
-                        iterations=50, alpha=alpha
+                        nodes, demands, 
+                        capacity, 
+                        max_time, 
+                        dist_matrix,
+                        iterations=ITERATIONS, 
+                        alpha=alpha
                     )
                     times.append(time.time() - t0)
                     latencies.append(latency)
