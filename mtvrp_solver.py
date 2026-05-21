@@ -162,14 +162,14 @@ def local_search(routes, dist_matrix):
                 break
     return best_routes, best_latency
 
-def solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=50):
+def solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=50, alpha=3):
     """Metodología GRASP Completa"""
     best_overall_routes = None
     best_overall_latency = float('inf')
     
     for _ in range(iterations):
         # 1. Construir
-        routes = grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=3)
+        routes = grasp_constructive(nodes, demands, capacity, max_time, dist_matrix, alpha=alpha)
         # 2. Mejorar
         improved_routes, _ = local_search(routes, dist_matrix)
         # 3. Reordenar rutas para minimizar latencia secuencial
@@ -185,48 +185,90 @@ def solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iteration
 
 def main():
     folder_path = "./instancias"
-    
+    ALPHA_VALUES    = [1, 2, 3, 5, 7]
+    NUM_REPLICATIONS = len(ALPHA_VALUES)   # una réplica por cada valor de alpha
+
     if not os.path.exists(folder_path):
         print(f"Crea la carpeta '{folder_path}' y coloca las instancias ahí.")
         return
 
-    print("\n")
-    print(f"{'Instancia':<20} | {'Clientes':<10} | {'Mejor Latencia':<15} | {'Tiempo Ejec. (s)':<15}")
-    print("-" * 65)
+    col_inst     = 22
+    col_best_val = 22
+    col_avg_val  = 16
+    col_worst    = 14
+    col_time     = 18
+    col_reps     = 20
+    col_config   = 20
 
-    all_routes = {}
+    header = (
+        f"{'Instancia':<{col_inst}} | "
+        f"{'Mejor Valor Enc.':<{col_best_val}} | "
+        f"{'Valor Promedio':<{col_avg_val}} | "
+        f"{'Peor Valor':<{col_worst}} | "
+        f"{'Tiempo Promedio (s)':<{col_time}} | "
+        f"{'Num. de Replicas':<{col_reps}} | "
+        f"{'Mejor Config. (alpha)':<{col_config}}"
+    )
+    print("\n")
+    print(header)
+    print("-" * len(header))
+
+    all_best_routes = {}
 
     for filename in os.listdir(folder_path):
         if filename.endswith(".txt") or filename.endswith(".TXT"):
             filepath = os.path.join(folder_path, filename)
             try:
-                start_time = time.time()
                 nodes, demands, capacity, max_time, dist_matrix = parse_instance(filepath)
-                num_clients = len(nodes) - 1
-                
-                # Ejecutar GRASP con 100 iteraciones
-                #routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=100)
-                
-                # Ejecutar GRASP con 50 iteraciones
-                routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time, dist_matrix, iterations=50)
-                exec_time = time.time() - start_time
-                
-                print(f"{filename:<20} | {num_clients:<10} | {latency:<15.2f} | {exec_time:<15.4f}")
-                all_routes[filename] = routes
-                
+
+                latencies   = []
+                times       = []
+                best_routes = None
+                best_latency = float('inf')
+                best_alpha   = None
+
+                for alpha in ALPHA_VALUES:
+                    t0 = time.time()
+                    routes, latency = solve_mtvrp_grasp(
+                        nodes, demands, capacity, max_time, dist_matrix,
+                        iterations=50, alpha=alpha
+                    )
+                    times.append(time.time() - t0)
+                    latencies.append(latency)
+                    if latency < best_latency:
+                        best_latency = latency
+                        best_routes  = routes
+                        best_alpha   = alpha
+
+                best_val  = min(latencies)
+                avg_val   = sum(latencies) / len(latencies)
+                worst_val = max(latencies)
+                avg_time  = sum(times) / len(times)
+
+                print(
+                    f"{filename:<{col_inst}} | "
+                    f"{best_val:<{col_best_val}.2f} | "
+                    f"{avg_val:<{col_avg_val}.2f} | "
+                    f"{worst_val:<{col_worst}.2f} | "
+                    f"{avg_time:<{col_time}.4f} | "
+                    f"{NUM_REPLICATIONS:<{col_reps}} | "
+                    f"{best_alpha:<{col_config}}"
+                )
+                all_best_routes[filename] = best_routes
+
             except Exception as e:
-                print(f"{filename:<20} | ERROR AL LEER: {e}")
-    
+                print(f"{filename:<{col_inst}} | ERROR AL LEER: {e}")
+
     print("\n")
-    print("=" * 65)
-    print("DETALLE DE RUTAS POR INSTANCIA")
-    print("=" * 65)
-    for filename, routes in all_routes.items():
+    print("=" * len(header))
+    print("DETALLE DE RUTAS POR INSTANCIA (MEJOR SOLUCION)")
+    print("=" * len(header))
+    for filename, routes in all_best_routes.items():
         print(f"\nInstancia: {filename}")
         for idx, route in enumerate(routes):
             route_str = " -> ".join(str(n) for n in route)
             print(f"  Viaje {idx + 1}: {route_str}")
-    
+
     print("\n")
 
 if __name__ == "__main__":

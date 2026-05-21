@@ -413,9 +413,10 @@ class MTVRPDesktopApp(tk.Tk):
 
     # ── Single Instance ───────────────────────────────────────────────────
     def _run_single(self):
-        filename = self.instance_var.get()
-        filepath = os.path.join(self.folder_path, filename)
+        filename   = self.instance_var.get()
+        filepath   = os.path.join(self.folder_path, filename)
         iterations = self.iter_var.get()
+        alpha      = self.alpha_var.get()
 
         self.after(0, lambda: self.status_label.config(
             text=f"Optimizing {filename}…", fg=ACCENT_BLUE))
@@ -423,14 +424,14 @@ class MTVRPDesktopApp(tk.Tk):
         start = time.time()
         nodes, demands, capacity, max_time, dist_matrix = parse_instance(filepath)
         routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time,
-                                            dist_matrix, iterations=iterations)
+                                            dist_matrix, iterations=iterations, alpha=alpha)
         exec_time = time.time() - start
 
         self.after(0, lambda: self._display_single_results(
-            filename, nodes, demands, capacity, dist_matrix, routes, latency, exec_time))
+            filename, nodes, demands, capacity, dist_matrix, routes, latency, exec_time, alpha))
 
     def _display_single_results(self, filename, nodes, demands, capacity,
-                                dist_matrix, routes, latency, exec_time):
+                                dist_matrix, routes, latency, exec_time, alpha=3):
         self._clear_content()
 
         # ── Status ────────────────────────────────────────────────────────
@@ -441,17 +442,21 @@ class MTVRPDesktopApp(tk.Tk):
         metrics_row = tk.Frame(self.content_frame, bg=BG_DARK)
         metrics_row.pack(fill=tk.X, padx=20, pady=(20, 10))
 
-        c1 = self._make_metric_card(metrics_row, "Best Total Latency",
+        c1 = self._make_metric_card(metrics_row, "Mejor Valor Encontrado",
                                     f"{latency:.2f}", ACCENT_BLUE)
         c1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
 
-        c2 = self._make_metric_card(metrics_row, "Execution Time",
+        c2 = self._make_metric_card(metrics_row, "Tiempo de Ejecución",
                                     f"{exec_time:.4f} s", ACCENT_PINK)
         c2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
 
-        c3 = self._make_metric_card(metrics_row, "Trips Required",
+        c3 = self._make_metric_card(metrics_row, "Viajes Requeridos",
                                     str(len(routes)), ACCENT_ORANGE)
-        c3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0))
+        c3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+
+        c4 = self._make_metric_card(metrics_row, "Config. Usada (alpha)",
+                                    str(alpha), ACCENT_GREEN)
+        c4.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(4, 0))
 
         # ── Body: chart + trip details ────────────────────────────────────
         body = tk.Frame(self.content_frame, bg=BG_DARK)
@@ -623,10 +628,11 @@ class MTVRPDesktopApp(tk.Tk):
 
     # ── Batch Mode ────────────────────────────────────────────────────────
     def _run_batch(self):
-        iterations = self.iter_var.get()
-        files = self.instance_files
-        total = len(files)
-        results = []
+        ALPHA_VALUES = [1, 2, 3, 5, 7]
+        iterations   = self.iter_var.get()
+        files        = self.instance_files
+        total        = len(files)
+        results      = []
 
         self.after(0, self._show_progress)
 
@@ -635,19 +641,31 @@ class MTVRPDesktopApp(tk.Tk):
                 text=f"Solving ({i + 1}/{total}): {fn}…", fg=ACCENT_BLUE))
 
             filepath = os.path.join(self.folder_path, filename)
-            start = time.time()
             nodes, demands, capacity, max_time, dist_matrix = parse_instance(filepath)
-            num_clients = len(nodes) - 1
-            routes, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time,
-                                                dist_matrix, iterations=iterations)
-            exec_time = time.time() - start
+
+            latencies    = []
+            times        = []
+            best_latency = float('inf')
+            best_alpha   = None
+
+            for alpha in ALPHA_VALUES:
+                t0 = time.time()
+                _, latency = solve_mtvrp_grasp(nodes, demands, capacity, max_time,
+                                               dist_matrix, iterations=iterations, alpha=alpha)
+                times.append(time.time() - t0)
+                latencies.append(latency)
+                if latency < best_latency:
+                    best_latency = latency
+                    best_alpha   = alpha
 
             results.append({
-                "Instance": filename,
-                "Clients": num_clients,
-                "Capacity": capacity,
-                "Best Latency": round(latency, 2),
-                "Time (s)": round(exec_time, 4),
+                "Instancia": filename,
+                "Mejor Valor Enc.": round(min(latencies), 2),
+                "Valor Promedio": round(sum(latencies) / len(latencies), 2),
+                "Peor Valor": round(max(latencies), 2),
+                "Tiempo Prom. (s)": round(sum(times) / len(times), 4),
+                "Num. Replicas": len(ALPHA_VALUES),
+                "Mejor Config. (alpha)": best_alpha,
             })
 
             pct = int((index + 1) / total * 100)
@@ -714,8 +732,16 @@ class MTVRPDesktopApp(tk.Tk):
         tree.pack(fill=tk.BOTH, expand=True)
 
         # Configure headings and column widths
-        col_widths = {"#": 50, "Instance": 220, "Clients": 100, "Capacity": 110,
-                      "Best Latency": 150, "Time (s)": 130}
+        col_widths = {
+            "#": 50,
+            "Instancia": 200,
+            "Mejor Valor Enc.": 150,
+            "Valor Promedio": 130,
+            "Peor Valor": 110,
+            "Tiempo Prom. (s)": 140,
+            "Num. Replicas": 120,
+            "Mejor Config. (alpha)": 160,
+        }
         for j, (col_id, col_name) in enumerate(zip(col_ids, all_cols)):
             w = col_widths.get(col_name, 140)
             anchor = "w" if col_name == "Instance" else "center"
