@@ -71,9 +71,9 @@ def route_duration(route, dist_matrix):
 def reorder_routes(routes, dist_matrix):
     route_info = []
     for r in routes:
-        clients_count = len(r) - 2
+        clients_count = len(r) - 2  # Excluir el depósito al inicio y al final
         if clients_count <= 0:
-            continue
+            continue  # Ignorar rutas vacías o inválidas
         dur = route_duration(r, dist_matrix)
         ratio = dur / clients_count
         route_info.append((ratio, r))
